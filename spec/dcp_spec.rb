@@ -1,6 +1,6 @@
-RSpec.describe Dcp do
+RSpec.describe DCP do
   it "has a version number" do
-    expect(Dcp::VERSION).not_to be nil
+    expect(DCP::VERSION).not_to be nil
   end
 
   it "does something useful" do

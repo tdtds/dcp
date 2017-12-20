@@ -1,5 +1,5 @@
 require "dcp/version"
 
-module Dcp
+module DCP
   # Your code goes here...
 end

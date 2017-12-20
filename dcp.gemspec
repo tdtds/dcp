@@ -5,7 +5,7 @@ require "dcp/version"
 
 Gem::Specification.new do |spec|
   spec.name          = "dcp"
-  spec.version       = Dcp::VERSION
+  spec.version       = DCP::VERSION
   spec.authors       = ["TADA Tadashi"]
   spec.email         = ["t@tdtds.jp"]
 
