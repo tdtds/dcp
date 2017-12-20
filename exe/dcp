@@ -12,6 +12,17 @@ module DCP
 	class CLI
 		def run
 			opts, args = parse_options
+			dst = args.pop
+			begin
+				args.each do |src|
+					open(src, 'r') do |r|
+						open(dst, 'w') do |w|
+						end
+					end
+				end
+			rescue => e
+				usage e.message
+			end
 		end
 
 	private
@@ -42,6 +53,47 @@ module DCP
 			usage 'needs src and dest' if args.size < 2
 
 			return opts, args
+		end
+
+		def dropbox_client
+			return @dropbox_client if @dropbox_client
+
+			auth = Pit::get('dcp')
+			unless auth[:dropbox_token]
+				print "Enter dropbox app key: "
+				api_key = $stdin.gets.chomp
+
+				print "Enter dropbox app secret: "
+				api_secret = $stdin.gets.chomp
+
+				authenticator = DropboxApi::Authenticator.new(api_key, api_secret)
+				puts "\nGo to this url and click 'Authorize' to get the token:"
+				puts authenticator.authorize_url
+
+				print "Enter the token: "
+				code = $stdin.gets.chomp
+
+				auth[:dropbox_token] = authenticator.get_token(code).token
+				Pit::set('dcp', data: auth)
+			end
+			return @dropbox_client = DropboxApi::Client.new(auth[:dropbox_token])
+		end
+
+		def dropbox_path?(path)
+			path =~ /\A(db|dropbox):/
+		end
+
+		def open(file, opts)
+			if dropbox_path?(file)
+				_, path = file.split(/:/, 2)
+				if opts =~ /w/ # write
+					raise StandardError.new('write to dropbox does not implement.')
+				else # read
+					raise StandardError.new('read from dropbox does not implement.')
+				end
+			else
+				File.open(file, opts){|f| yield f}
+			end
 		end
 	end
 end
