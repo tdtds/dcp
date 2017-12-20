@@ -7,6 +7,7 @@
 #
 require 'dcp'
 require 'optparse'
+require 'pit'
 
 module DCP
 	class CLI
@@ -17,6 +18,7 @@ module DCP
 				args.each do |src|
 					open(src, 'r') do |r|
 						open(dst, 'w') do |w|
+							w.write(r.read(10_000_000))
 						end
 					end
 				end
@@ -52,10 +54,10 @@ module DCP
 			return opts, args
 		end
 
-		def dropbox_client
-			return @dropbox_client if @dropbox_client
+		def dropbox
+			return @dropbox if @dropbox
 
-			auth = Pit::get('dcp')
+			auth = ::Pit::get('dcp')
 			unless auth[:dropbox_token]
 				print "Enter dropbox app key: "
 				api_key = $stdin.gets.chomp
@@ -63,7 +65,7 @@ module DCP
 				print "Enter dropbox app secret: "
 				api_secret = $stdin.gets.chomp
 
-				authenticator = DropboxApi::Authenticator.new(api_key, api_secret)
+				authenticator = ::DropboxApi::Authenticator.new(api_key, api_secret)
 				puts "\nGo to this url and click 'Authorize' to get the token:"
 				puts authenticator.authorize_url
 
@@ -73,7 +75,7 @@ module DCP
 				auth[:dropbox_token] = authenticator.get_token(code).token
 				Pit::set('dcp', data: auth)
 			end
-			return @dropbox_client = DropboxApi::Client.new(auth[:dropbox_token])
+			return @dropbox = Dropbox.new(auth[:dropbox_token])
 		end
 
 		def dropbox_path?(path)
@@ -83,11 +85,7 @@ module DCP
 		def open(file, opts)
 			if dropbox_path?(file)
 				_, path = file.split(/:/, 2)
-				if opts =~ /w/ # write
-					raise StandardError.new('write to dropbox does not implement.')
-				else # read
-					raise StandardError.new('read from dropbox does not implement.')
-				end
+				dropbox.open(path, opts){|f| yield f}
 			else
 				File.open(file, opts){|f| yield f}
 			end
