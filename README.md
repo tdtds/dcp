@@ -1,6 +1,6 @@
 # dcp
 
-copy files to/from dropbox line scp command
+copy files to/from dropbox like scp command
 
 ## Installation
 
