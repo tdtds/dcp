@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    dcp (0.1.1)
+    dcp (0.2.0)
       dropbox_api
       pit
 
