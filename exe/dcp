@@ -33,7 +33,7 @@ module DCP
 
 	private
 		def error(msg)
-			$stderr.puts "error: #{msg}"
+			$stderr.puts "dcp: #{msg}"
 		end
 
 		def parse_options(argv = ARGV)
