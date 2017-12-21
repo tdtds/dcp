@@ -20,8 +20,10 @@ module DCP
 						open(dst, 'w') do |w|
 							while data = r.read(10_000_000) do
 								w.write(data)
+								print '.' unless opts[:quiet]
 							end
 						end
+						puts unless opts[:quiet]
 					end
 				end
 			rescue => e
@@ -42,8 +44,12 @@ module DCP
 			end
 
 			opts = {
+				quiet: false
 			}
 
+			op.on('-q', '--quiet', "quiet mode") do
+				opts[:quiet] = true
+			end
 			op.on('-h', '--help', "print this messages") do
 				usage
 			end
