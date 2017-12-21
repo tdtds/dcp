@@ -18,7 +18,9 @@ module DCP
 				args.each do |src|
 					open(src, 'r') do |r|
 						open(dst, 'w') do |w|
-							w.write(r.read(10_000_000))
+							while data = r.read(10_000_000) do
+								w.write(data)
+							end
 						end
 					end
 				end
