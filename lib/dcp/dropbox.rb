@@ -21,5 +21,23 @@ module DCP
 				raise StandardError.new('read from dropbox does not implement.')
 			end
 		end
+
+		def file?(path)
+			return false if path.empty? || path == '/'
+			begin
+				@client.get_metadata(path).class == DropboxApi::Metadata::File
+			rescue ::DropboxApi::Errors::NotFoundError
+				raise Errno::ENOENT.new('file not found on dropbox')
+			end
+		end
+
+		def directory?(path)
+			return true if path.empty? || path == '/'
+			begin
+				@client.get_metadata(path).class == DropboxApi::Metadata::Folder
+			rescue ::DropboxApi::Errors::NotFoundError
+				raise Errno::ENOENT.new('file not found on dropbox')
+			end
+		end
 	end
 end

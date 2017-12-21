@@ -10,14 +10,32 @@ require 'optparse'
 require 'pit'
 
 module DCP
+	class MultiError < StandardError
+		attr_reader :messages
+		def initialize(messages)
+			@messages = messages
+		end
+	end
+
 	class CLI
 		def run
 			opts, args = parse_options
 			dst = args.pop
 			begin
+				precheck(args, dst)
+			rescue MultiError => e
+				e.messages.each{|m| error m}
+				exit 1
+			rescue => e
+				error e.message
+				exit 1
+			end
+			begin
+				dst = dst.chop if dst =~ /\/\z/ # root directory => ''
 				args.each do |src|
 					open(src, 'r') do |r|
-						open(dst, 'w') do |w|
+						d = directory?(dst) ? "#{dst}/#{File.basename(src)}" : dst
+						open(d, 'w') do |w|
 							while data = r.read(10_000_000) do
 								w.write(data)
 								print '.' unless opts[:quiet]
@@ -97,12 +115,51 @@ module DCP
 			path =~ /\A(db|dropbox):/
 		end
 
+		def dropbox_path(file)
+			raise StandardError.new("not a dropbox path: #{file}") unless dropbox_path?(file)
+			file.split(/:/, 2)[1]
+		end
+
+		def precheck(srcs, dst)
+			errors = []
+			srcs.each do |src|
+				begin
+					if dropbox_path?(src)
+						errors << "cannot copy from dropbox: #{src}"
+					else
+						if directory?(src)
+							errors << "cannot copy from directory: #{src}"
+						end
+					end
+				rescue Errno::ENOENT
+					errors << "file not found: #{src}"
+				end
+			end
+
+			begin
+				if directory?(dst) && srcs.size > 1
+					errors << "cannot copy multiple files into a file: #{dst}"
+				end
+			rescue Errno::ENOENT
+				errors << "file not found: #{dst}"
+			end
+
+			raise MultiError.new(errors) unless errors.empty?
+		end
+
 		def open(file, opts)
 			if dropbox_path?(file)
-				_, path = file.split(/:/, 2)
-				dropbox.open(path, opts){|f| yield f}
+				dropbox.open(dropbox_path(file), opts){|f| yield f}
 			else
 				File.open(file, opts){|f| yield f}
+			end
+		end
+
+		def directory?(file)
+			if dropbox_path?(file)
+				dropbox.directory?(dropbox_path(file))
+			else
+				File.stat(file).directory?
 			end
 		end
 	end
