@@ -32,13 +32,17 @@ module DCP
 		end
 
 	private
+		def error(msg)
+			$stderr.puts "error: #{msg}"
+		end
+
 		def parse_options(argv = ARGV)
 			op = OptionParser.new
 
 			self.class.module_eval do
 				define_method(:usage) do |msg = nil|
 					puts op.to_s
-					puts "error: #{msg}" if msg
+					error msg if msg
 					exit 1
 				end
 			end
