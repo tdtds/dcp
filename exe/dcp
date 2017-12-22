@@ -19,10 +19,9 @@ module DCP
 
 	class CLI
 		def run
-			opts, args = parse_options
-			dst = args.pop
+			@opts, args = parse_options
 			begin
-				precheck(args, dst)
+				pairs = make_pairs(args.pop, args)
 			rescue MultiError => e
 				e.messages.each{|m| error m}
 				exit 1
@@ -31,27 +30,29 @@ module DCP
 				exit 1
 			end
 			begin
-				dst = dst.chop if dst =~ /\/\z/ # root directory => ''
-				args.each do |src|
+				pairs.each do |src, dst|
+					puts "#{src} => #{dst}" if @opts[:debug]
 					open(src, 'r') do |r|
-						d = directory?(dst) ? "#{dst}/#{File.basename(src)}" : dst
-						open(d, 'w') do |w|
+						open(dst, 'w') do |w|
 							while data = r.read(10_000_000) do
 								w.write(data)
-								print '.' unless opts[:quiet]
+								print '.' unless @opts[:quiet]
 							end
 						end
-						puts unless opts[:quiet]
 					end
+					puts if @opts[:debug]
 				end
+				puts unless @opts[:quiet]
 			rescue => e
-				usage "#{e.message} (#{e.class})"
+				error "#{e.message} (#{e.class})"
+				exit 1
 			end
 		end
 
 	private
 		def error(msg)
 			$stderr.puts "dcp: #{msg}"
+			$@.each{|e| $stderr.puts e} if @opts[:debug]
 		end
 
 		def parse_options(argv = ARGV)
@@ -66,11 +67,15 @@ module DCP
 			end
 
 			opts = {
-				quiet: false
+				quiet: false,
+				debug: false
 			}
 
 			op.on('-q', '--quiet', "quiet mode") do
 				opts[:quiet] = true
+			end
+			op.on('-D', '--debug', "debug mode") do
+				opts[:debug] = true
 			end
 			op.on('-h', '--help', "print this messages") do
 				usage
@@ -120,8 +125,11 @@ module DCP
 			file.split(/:/, 2)[1]
 		end
 
-		def precheck(srcs, dst)
+		def make_pairs(dst, srcs)
 			errors = []
+			dst_is_directory = false
+
+			# cheking src file existance
 			srcs.each do |src|
 				begin
 					if dropbox_path?(src)
@@ -136,15 +144,33 @@ module DCP
 				end
 			end
 
+			# cheking dst file correctness
 			begin
-				if directory?(dst) && srcs.size > 1
-					errors << "cannot copy multiple files into a file: #{dst}"
+				d = dst =~ /\/\z/ ? dst.chop : dst # root directory => ''
+				if file?(d)
+					if srcs.size > 1
+						errors << "cannot copy multiple files into a file: #{dst}"
+					end
+				elsif directory?(d)
+					dst_is_directory = true
 				end
-			rescue Errno::ENOENT
-				errors << "file not found: #{dst}"
+			rescue Errno::ENOENT # check parent directory existance
+				begin
+					if directory?(File.dirname(d)) && srcs.size > 1
+						errors << "cannot copy multiple files into a file: #{dst}"
+					end
+				rescue Errno::ENOENT
+					errors << "file not found: #{dst}"
+				end
 			end
 
 			raise MultiError.new(errors) unless errors.empty?
+
+			if dst_is_directory
+				return srcs.map{|src| [src, "#{d}/#{File.basename(src)}"]}
+			else
+				return [[srcs[0], dst]]
+			end
 		end
 
 		def open(file, opts)
@@ -152,6 +178,14 @@ module DCP
 				dropbox.open(dropbox_path(file), opts){|f| yield f}
 			else
 				File.open(file, opts){|f| yield f}
+			end
+		end
+
+		def file?(file)
+			if dropbox_path?(file)
+				dropbox.file?(dropbox_path(file))
+			else
+				File.stat(file).file?
 			end
 		end
 
