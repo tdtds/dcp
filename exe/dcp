@@ -52,7 +52,7 @@ module DCP
 	private
 		def error(msg)
 			$stderr.puts "dcp: #{msg}"
-			$@.each{|e| $stderr.puts e} if @opts[:debug]
+			$@.each{|e| $stderr.puts e} if @opts && @opts[:debug]
 		end
 
 		def parse_options(argv = ARGV)
